@@ -94,14 +94,15 @@ score-branch: ## Score a candidate branch locally  [BRANCH=solution/jane-doe]
 ifndef BRANCH
 	$(error BRANCH is required. Usage: make score-branch BRANCH=solution/jane-doe)
 endif
-	@echo "Fetching branch $(BRANCH) ..."
-	git fetch origin $(BRANCH)
-	git checkout $(BRANCH)
+	@echo "Fetching latest from $(BRANCH) ..."
+	git fetch origin
+	git checkout $(BRANCH) 2>/dev/null || git checkout -b $(BRANCH) --track origin/$(BRANCH)
+	git reset --hard origin/$(BRANCH)
 	@CANDIDATE=$$(echo '$(BRANCH)' | sed 's|solution/||' | tr '-' ' ') && \
-	echo "Scoring candidate: $$CANDIDATE" && \
-	CANDIDATE_NAME="$$CANDIDATE" $(PYTHON) score_auto.py && \
-	echo "" && \
-	echo "Automated portion done. Run 'make score' for the full interactive score."
+	echo "Scoring: $$CANDIDATE" && \
+	CANDIDATE_NAME="$$CANDIDATE" $(PYTHON) score_auto.py
+	@echo ""
+	@echo "Automated done. For full score (manual sections): make score"
 
 # ── Housekeeping ──────────────────────────────────────────────────────────────
 
