@@ -1,0 +1,30 @@
+__pycache__/
+*.py[cod]
+*.egg-info/
+.eggs/
+
+# Environment
+.env
+venv/
+.venv/
+
+# Spark temp
+spark-warehouse/
+derby.log
+metastore_db/
+checkpoints/
+/tmp/
+
+# IDE
+.idea/
+.vscode/
+
+# Ivy/Maven (Spark JAR cache)
+.ivy2/
+.m2/
+
+# macOS
+.DS_Store
+
+# Test cache
+.pytest_cache/
