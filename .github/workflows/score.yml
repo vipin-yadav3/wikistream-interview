@@ -9,6 +9,9 @@ on:
 permissions:
   contents: write      # needed to post commit comments
 
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true   # opt into Node.js 24 before forced migration
+
 jobs:
   score:
     runs-on: ubuntu-latest
@@ -28,6 +31,10 @@ jobs:
         uses: actions/setup-python@v5
         with:
           python-version: '3.10'
+
+      - name: Sanitise branch name for artifact (replace / with -)
+        id: branch
+        run: echo "safe=$(echo '${{ github.ref_name }}' | tr '/' '-')" >> $GITHUB_OUTPUT
 
       - name: Cache Spark JARs (speeds up repeated runs)
         uses: actions/cache@v4
@@ -56,7 +63,7 @@ jobs:
         uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: score-report-${{ github.ref_name }}
+          name: score-report-${{ steps.branch.outputs.safe }}
           path: |
             score_output.txt
             score_report.json
