@@ -6,6 +6,9 @@ on:
     branches:
       - 'solution/**'
 
+permissions:
+  contents: write      # needed to post commit comments
+
 jobs:
   score:
     runs-on: ubuntu-latest
