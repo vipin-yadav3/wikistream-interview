@@ -45,11 +45,7 @@ jobs:
       - name: Run automated scorer
         id: score
         run: |
-          export PYSPARK_SUBMIT_ARGS="--packages \
-            org.apache.spark:spark-sql-kafka-0-10_2.12:3.5.0,\
-            io.delta:delta-spark_2.12:3.2.0,\
-            org.postgresql:postgresql:42.7.3 \
-            pyspark-shell"
+          export PYSPARK_SUBMIT_ARGS="--packages org.apache.spark:spark-sql-kafka-0-10_2.12:3.5.0,io.delta:delta-spark_2.12:3.2.0,org.postgresql:postgresql:42.7.3 pyspark-shell"
           python score_auto.py 2>&1 | tee score_output.txt
           echo "exit_code=${PIPESTATUS[0]}" >> $GITHUB_OUTPUT
 
