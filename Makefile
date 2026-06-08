@@ -1,4 +1,4 @@
-.PHONY: help setup up down producer pipeline test score score-auto score-branch submit check-pg check-minio check-kafka reset clean
+.PHONY: help setup up down producer pipeline test check-pg check-minio check-kafka reset clean
 
 -include .env
 export
@@ -45,7 +45,7 @@ pipeline: ## Run the streaming pipeline (Spark job)
 # ── Verification ──────────────────────────────────────────────────────────────
 
 check-kafka: ## Tail 10 messages from wiki.recentchanges
-	docker exec wiki-kafka kafka-console-consumer.sh \
+	docker exec wiki-kafka kafka-console-consumer \
 	  --bootstrap-server localhost:9092 \
 	  --topic wiki.recentchanges \
 	  --max-messages 10 \
@@ -56,62 +56,20 @@ check-pg: ## Show latest rows in wiki_edit_counts
 	  -c "SELECT * FROM recent_stats LIMIT 15;"
 
 check-minio: ## List Delta files in MinIO
-	docker exec wiki-minio-init mc ls --recursive local/wiki-stream/ 2>/dev/null || \
-	  docker run --rm --network host minio/mc alias set local http://localhost:9000 minioadmin minioadmin \
-	  && docker run --rm --network host minio/mc ls --recursive local/wiki-stream/
+	docker run --rm --network host minio/mc alias set local http://localhost:9000 minioadmin minioadmin 2>/dev/null; \
+	docker run --rm --network host minio/mc ls --recursive local/wiki-stream/ 2>/dev/null || echo "No files yet."
 
-# ── Tests & Scoring ───────────────────────────────────────────────────────────
+# ── Tests ─────────────────────────────────────────────────────────────────────
 
-test: ## Run automated unit tests (no Docker needed for transform tests)
+test: ## Run automated unit tests (no Docker needed)
 	$(PYTEST) tests/test_transforms.py -v
-
-test-all: ## Run all tests including integration (requires Docker up)
-	$(PYTEST) tests/ -v
-
-score: ## Full interactive score (automated + manual prompts) — run at end of interview
-	$(PYTHON) score.py
-
-score-auto: ## Automated tests only — no prompts (same as GitHub Actions)
-	$(PYTHON) score_auto.py
-
-submit: ## Push your solution branch so the interviewer can score it
-ifndef NAME
-	$(error NAME is required. Usage: make submit NAME="Jane Doe")
-endif
-	@BRANCH="solution/$$(echo '$(NAME)' | tr ' ' '-' | tr '[:upper:]' '[:lower:]')" && \
-	git checkout -b $$BRANCH 2>/dev/null || git checkout $$BRANCH && \
-	git add jobs/pipeline.py && \
-	git commit -m "Solution: $(NAME)" && \
-	git push origin $$BRANCH && \
-	echo "" && \
-	echo "✓ Solution pushed to branch: $$BRANCH" && \
-	echo "  GitHub Actions will auto-score it in ~3 min." && \
-	echo "  View at: https://github.com/vipin-yadav3/wikistream-interview/actions"
-
-# ── Interviewer: score a candidate branch locally ─────────────────────────────
-
-score-branch: ## Score a candidate branch locally  [BRANCH=solution/jane-doe]
-ifndef BRANCH
-	$(error BRANCH is required. Usage: make score-branch BRANCH=solution/jane-doe)
-endif
-	@echo "Fetching latest from $(BRANCH) ..."
-	git fetch origin
-	git checkout $(BRANCH) 2>/dev/null || git checkout -b $(BRANCH) --track origin/$(BRANCH)
-	git reset --hard origin/$(BRANCH)
-	@CANDIDATE=$$(echo '$(BRANCH)' | sed 's|solution/||' | tr '-' ' ') && \
-	echo "Scoring: $$CANDIDATE" && \
-	CANDIDATE_NAME="$$CANDIDATE" $(PYTHON) score_auto.py
-	@echo ""
-	@echo "Automated done. For full score (manual sections): make score"
 
 # ── Housekeeping ──────────────────────────────────────────────────────────────
 
-reset: ## Wipe checkpoints + Postgres data + MinIO bucket (fresh start)
+reset: ## Wipe checkpoints + Postgres + MinIO for a fresh start
 	rm -rf checkpoints/
 	docker exec wiki-postgres psql -U wiki -d wikidb \
 	  -c "TRUNCATE wiki_edit_counts, wiki_edit_counts_staging, bot_alerts;" 2>/dev/null || true
-	docker run --rm --network host minio/mc alias set local http://localhost:9000 minioadmin minioadmin \
-	  && docker run --rm --network host minio/mc rm --recursive --force local/wiki-stream/ 2>/dev/null || true
 	@echo "Reset complete."
 
 clean: ## Remove Python cache and temp files
