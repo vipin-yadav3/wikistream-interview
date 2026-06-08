@@ -135,6 +135,7 @@ def _upsert_batch(batch_df: DataFrame, batch_id: int) -> None:
     )
 
     # Step 2: merge staging → main table
+    import psycopg2  # lazy import — not needed at module load time
     conn = psycopg2.connect(PG_DSN)
     try:
         with conn.cursor() as cur:
