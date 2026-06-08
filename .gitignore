@@ -28,3 +28,5 @@ checkpoints/
 
 # Test cache
 .pytest_cache/
+score_report.txt
+score_report.json
