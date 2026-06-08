@@ -182,4 +182,22 @@ make test          # runs automated unit tests
 - Each `writeStream` needs its own unique `checkpointLocation`
 - `spark.streams.awaitAnyTermination()` keeps all queries running
 - If something is broken and you want a clean restart: `make reset`
-- You can run `make score` at any time to see your current automated score
+- You can run `make test` at any time to check your automated score
+
+---
+
+## Submitting your solution
+
+When the interviewer says time is up, push your solution with:
+
+```bash
+make submit NAME="Your Full Name"
+```
+
+This creates a branch `solution/your-full-name`, commits `jobs/pipeline.py`,
+and pushes it. GitHub will automatically run the tests and post the score.
+
+Example:
+```bash
+make submit NAME="Jane Doe"
+```

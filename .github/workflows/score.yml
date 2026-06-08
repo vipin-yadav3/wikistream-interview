@@ -1,0 +1,105 @@
+name: Auto-Score Candidate Solution
+
+# Triggers when a candidate pushes to solution/<their-name>
+on:
+  push:
+    branches:
+      - 'solution/**'
+
+jobs:
+  score:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Checkout candidate branch
+        uses: actions/checkout@v4
+
+      - name: Set up Java 17 (required for PySpark)
+        uses: actions/setup-java@v4
+        with:
+          java-version: '17'
+          distribution: 'temurin'
+
+      - name: Set up Python 3.10
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.10'
+
+      - name: Cache Spark JARs (speeds up repeated runs)
+        uses: actions/cache@v4
+        with:
+          path: ~/.ivy2
+          key: spark-jars-${{ hashFiles('requirements.txt') }}
+
+      - name: Install Python dependencies
+        run: |
+          pip install --quiet \
+            pyspark==3.5.3 \
+            delta-spark==3.2.0 \
+            pandas==2.2.3 \
+            pyarrow==17.0.0 \
+            pytest==8.3.3
+
+      - name: Run automated scorer
+        id: score
+        run: |
+          export PYSPARK_SUBMIT_ARGS="--packages \
+            org.apache.spark:spark-sql-kafka-0-10_2.12:3.5.0,\
+            io.delta:delta-spark_2.12:3.2.0,\
+            org.postgresql:postgresql:42.7.3 \
+            pyspark-shell"
+          python score_auto.py 2>&1 | tee score_output.txt
+          echo "exit_code=${PIPESTATUS[0]}" >> $GITHUB_OUTPUT
+
+      - name: Upload score report as artifact
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: score-report-${{ github.ref_name }}
+          path: |
+            score_output.txt
+            score_report.json
+
+      - name: Post automated score as commit comment
+        uses: actions/github-script@v7
+        if: always()
+        with:
+          script: |
+            const fs = require('fs');
+            const output = fs.readFileSync('score_output.txt', 'utf8');
+            const branch = context.ref.replace('refs/heads/', '');
+            const candidate = branch.replace('solution/', '').replace(/-/g, ' ');
+
+            // Also read JSON for structured data
+            let json = {};
+            try { json = JSON.parse(fs.readFileSync('score_report.json', 'utf8')); } catch {}
+
+            const verdict  = json.verdict || 'unknown';
+            const total    = json.automated !== undefined ? json.automated : '?';
+            const maxAuto  = 62;
+            const emoji    = verdict === 'AUTO_PASS' ? '✅' : '⚠️';
+
+            const body = [
+              `## ${emoji} Automated Score — ${candidate}`,
+              `**Branch:** \`${branch}\``,
+              `**Automated score:** ${total} / ${maxAuto}`,
+              `**Auto-threshold result:** ${verdict}`,
+              ``,
+              `<details><summary>Full test breakdown</summary>`,
+              ``,
+              `\`\`\``,
+              output,
+              `\`\`\``,
+              `</details>`,
+              ``,
+              `> Manual scoring (streaming tasks + curveball) is done by the interviewer.`,
+              `> Run \`make score-branch BRANCH=${branch}\` locally to complete the full score.`,
+            ].join('\n');
+
+            await github.rest.repos.createCommitComment({
+              owner: context.repo.owner,
+              repo:  context.repo.repo,
+              commit_sha: context.sha,
+              body,
+            });

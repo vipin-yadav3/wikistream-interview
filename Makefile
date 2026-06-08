@@ -1,4 +1,4 @@
-.PHONY: help setup up down producer pipeline test score check-pg check-minio check-kafka reset clean
+.PHONY: help setup up down producer pipeline test score score-auto score-branch submit check-pg check-minio check-kafka reset clean
 
 -include .env
 export
@@ -68,8 +68,40 @@ test: ## Run automated unit tests (no Docker needed for transform tests)
 test-all: ## Run all tests including integration (requires Docker up)
 	$(PYTEST) tests/ -v
 
-score: ## Live score report with pass/fail verdict
+score: ## Full interactive score (automated + manual prompts) — run at end of interview
 	$(PYTHON) score.py
+
+score-auto: ## Automated tests only — no prompts (same as GitHub Actions)
+	$(PYTHON) score_auto.py
+
+submit: ## Push your solution branch so the interviewer can score it
+ifndef NAME
+	$(error NAME is required. Usage: make submit NAME="Jane Doe")
+endif
+	@BRANCH="solution/$$(echo '$(NAME)' | tr ' ' '-' | tr '[:upper:]' '[:lower:]')" && \
+	git checkout -b $$BRANCH 2>/dev/null || git checkout $$BRANCH && \
+	git add jobs/pipeline.py && \
+	git commit -m "Solution: $(NAME)" && \
+	git push origin $$BRANCH && \
+	echo "" && \
+	echo "✓ Solution pushed to branch: $$BRANCH" && \
+	echo "  GitHub Actions will auto-score it in ~3 min." && \
+	echo "  View at: https://github.com/vipin-yadav3/wikistream-interview/actions"
+
+# ── Interviewer: score a candidate branch locally ─────────────────────────────
+
+score-branch: ## Score a candidate branch locally  [BRANCH=solution/jane-doe]
+ifndef BRANCH
+	$(error BRANCH is required. Usage: make score-branch BRANCH=solution/jane-doe)
+endif
+	@echo "Fetching branch $(BRANCH) ..."
+	git fetch origin $(BRANCH)
+	git checkout $(BRANCH)
+	@CANDIDATE=$$(echo '$(BRANCH)' | sed 's|solution/||' | tr '-' ' ') && \
+	echo "Scoring candidate: $$CANDIDATE" && \
+	CANDIDATE_NAME="$$CANDIDATE" $(PYTHON) score_auto.py && \
+	echo "" && \
+	echo "Automated portion done. Run 'make score' for the full interactive score."
 
 # ── Housekeeping ──────────────────────────────────────────────────────────────
 
