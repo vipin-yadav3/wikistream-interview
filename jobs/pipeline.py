@@ -26,7 +26,6 @@ Run this pipeline:  make pipeline
 """
 
 import os
-import psycopg2
 
 from pyspark.sql import SparkSession, DataFrame
 from pyspark.sql import functions as F
