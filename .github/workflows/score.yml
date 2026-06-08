@@ -7,10 +7,10 @@ on:
       - 'solution/**'
 
 permissions:
-  contents: write      # needed to post commit comments
+  contents: read       # read-only on the candidate repo — score is posted elsewhere
 
 env:
-  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true   # opt into Node.js 24 before forced migration
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
 
 jobs:
   score:
@@ -32,7 +32,7 @@ jobs:
         with:
           python-version: '3.10'
 
-      - name: Sanitise branch name for artifact (replace / with -)
+      - name: Sanitise branch name (replace / with - for artifact name)
         id: branch
         run: echo "safe=$(echo '${{ github.ref_name }}' | tr '/' '-')" >> $GITHUB_OUTPUT
 
@@ -57,56 +57,72 @@ jobs:
         run: |
           export PYSPARK_SUBMIT_ARGS="--packages org.apache.spark:spark-sql-kafka-0-10_2.12:3.5.0,io.delta:delta-spark_2.12:3.2.0,org.postgresql:postgresql:42.7.3 pyspark-shell"
           python score_auto.py 2>&1 | tee score_output.txt
-          echo "exit_code=${PIPESTATUS[0]}" >> $GITHUB_OUTPUT
 
-      - name: Upload score report as artifact
-        uses: actions/upload-artifact@v4
-        if: always()
-        with:
-          name: score-report-${{ steps.branch.outputs.safe }}
-          path: |
-            score_output.txt
-            score_report.json
-
-      - name: Post automated score as commit comment
+      # ── Score is posted ONLY to the private interviewer repo ─────────────────
+      # Candidates have NO access to wikistream-interviewer — they never see this.
+      # Requires secret INTERVIEWER_REPO_TOKEN (see README for setup instructions).
+      - name: Post score as Issue in private interviewer repo
         uses: actions/github-script@v7
         if: always()
+        env:
+          INTERVIEWER_TOKEN: ${{ secrets.INTERVIEWER_REPO_TOKEN }}
         with:
+          github-token: ${{ secrets.INTERVIEWER_REPO_TOKEN }}
           script: |
+            if (!process.env.INTERVIEWER_TOKEN) {
+              console.log('INTERVIEWER_REPO_TOKEN secret not set — skipping issue creation.');
+              console.log('See README for one-time setup instructions.');
+              return;
+            }
+
             const fs = require('fs');
             const output = fs.readFileSync('score_output.txt', 'utf8');
             const branch = context.ref.replace('refs/heads/', '');
-            const candidate = branch.replace('solution/', '').replace(/-/g, ' ');
+            const candidate = branch.replace('solution/', '').replace(/-/g, ' ')
+                                    .replace(/\b\w/g, c => c.toUpperCase());
 
-            // Also read JSON for structured data
             let json = {};
             try { json = JSON.parse(fs.readFileSync('score_report.json', 'utf8')); } catch {}
 
-            const verdict  = json.verdict || 'unknown';
-            const total    = json.automated !== undefined ? json.automated : '?';
-            const maxAuto  = 62;
-            const emoji    = verdict === 'AUTO_PASS' ? '✅' : '⚠️';
+            const auto    = json.automated ?? '?';
+            const maxAuto = 62;
+            const verdict = json.verdict || 'unknown';
+            const emoji   = verdict === 'AUTO_PASS' ? '✅' : '⚠️';
+            const sha7    = context.sha.substring(0, 7);
+            const runUrl  = `https://github.com/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`;
 
             const body = [
-              `## ${emoji} Automated Score — ${candidate}`,
-              `**Branch:** \`${branch}\``,
-              `**Automated score:** ${total} / ${maxAuto}`,
-              `**Auto-threshold result:** ${verdict}`,
+              `## ${emoji} ${candidate} — Automated Score: ${auto}/${maxAuto}`,
               ``,
-              `<details><summary>Full test breakdown</summary>`,
+              `| Field | Value |`,
+              `|---|---|`,
+              `| **Candidate** | ${candidate} |`,
+              `| **Branch** | \`${branch}\` |`,
+              `| **Commit** | \`${sha7}\` |`,
+              `| **Automated score** | ${auto} / ${maxAuto} |`,
+              `| **Auto verdict** | ${verdict} |`,
+              `| **Actions run** | [View logs](${runUrl}) |`,
+              ``,
+              `### Next step`,
+              `Run on your machine to complete the manual portion:`,
+              `\`\`\`bash`,
+              `make score-branch BRANCH=${branch}`,
+              `\`\`\``,
+              ``,
+              `<details><summary>Full automated test breakdown</summary>`,
               ``,
               `\`\`\``,
               output,
               `\`\`\``,
               `</details>`,
-              ``,
-              `> Manual scoring (streaming tasks + curveball) is done by the interviewer.`,
-              `> Run \`make score-branch BRANCH=${branch}\` locally to complete the full score.`,
             ].join('\n');
 
-            await github.rest.repos.createCommitComment({
-              owner: context.repo.owner,
-              repo:  context.repo.repo,
-              commit_sha: context.sha,
+            await github.rest.issues.create({
+              owner: 'vipin-yadav3',
+              repo:  'wikistream-interviewer',
+              title: `${emoji} Score: ${candidate} — ${auto}/${maxAuto} (${verdict})`,
               body,
+              labels: [verdict === 'AUTO_PASS' ? 'auto-pass' : 'auto-fail'],
             });
+
+            console.log(`Score posted as issue in wikistream-interviewer`);
