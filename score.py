@@ -2,9 +2,13 @@
 Live scorer for Problem 3 — WikiStream Analytics Pipeline.
 
 Run any time:  python score.py  |  make score
+
+At the end the full report is saved to:  score_report.txt
 """
 
 import sys
+import json
+import datetime
 import pytest
 
 # ── Automated test → point mapping ───────────────────────────────────────────
@@ -151,6 +155,7 @@ def row(label, pts, status, lw=46):
 
 def ask_manual():
     total = 0
+    scores = {}
     print("\n┌" + line() + "┐")
     print(hdr(" MANUAL ASSESSMENT — Streaming & Curveball"))
     print("├" + line() + "┤")
@@ -163,12 +168,13 @@ def ask_manual():
                 val = int(input(f"│  Score (0–{s['max']}): ").strip())
                 if 0 <= val <= s["max"]:
                     total += val
+                    scores[s["title"]] = val
                     break
             except ValueError:
                 pass
             print(f"│  Enter a number 0–{s['max']}")
         print("├" + line() + "┤")
-    return total
+    return total, scores
 
 
 # ── Main ──────────────────────────────────────────────────────────────────────
@@ -187,19 +193,24 @@ def main():
     print(hdr(" WIKISTREAM PIPELINE — INTERVIEW SCORE REPORT"))
     print("├" + line("═") + "┤")
 
-    auto_earned = 0
+    auto_earned  = 0
+    auto_details = {}   # section title → list of (display, earned, pts, status_str)
 
     for section in SECTIONS:
         print(hdr(f" {section['title']}"))
         print("├" + line() + "┤")
         print(row("Test", "Pts", "Result"))
         print("├" + line() + "┤")
+        section_rows = []
         for node_id, display, pts in section["tests"]:
             passed  = collector.results.get(node_id)
             earned  = pts if passed is True else 0
             status  = "✓ pass" if passed is True else ("✗ FAIL" if passed is False else "– n/a")
+            st_str  = "PASS" if passed is True else "FAIL"
             auto_earned += earned
+            section_rows.append((display, earned, pts, st_str))
             print(row(display, f"{earned}/{pts}", status))
+        auto_details[section["title"]] = section_rows
         print("├" + line() + "┤")
 
     auto_pct    = int(auto_earned / AUTO_MAX * 100)
@@ -208,22 +219,83 @@ def main():
     print("└" + line("─") + "┘")
     print(f"\n  Automated threshold : {PASS_THRESHOLD_AUTO}/{AUTO_MAX}")
 
-    ans = input("\nScore manual sections now? (y/N): ").strip().lower()
+    # Collect candidate name for the report
+    candidate = input("\nCandidate name (press Enter to skip): ").strip() or "Unknown"
+
+    ans = input("Score manual sections now? (y/N): ").strip().lower()
     if ans == "y":
-        manual    = ask_manual()
-        total     = auto_earned + manual
-        verdict   = "✓  PASS" if total >= PASS_THRESHOLD_TOTAL else "✗  FAIL"
-        strong    = " — STRONG HIRE" if total >= 80 else ""
+        manual, manual_scores = ask_manual()
+        total   = auto_earned + manual
+        verdict = "PASS" if total >= PASS_THRESHOLD_TOTAL else "FAIL"
+        strong  = " — STRONG HIRE" if total >= 80 else ""
         print()
         print("┌" + line("═") + "┐")
+        print(hdr(f" CANDIDATE   : {candidate}"))
         print(hdr(f" AUTOMATED   : {auto_earned} / {AUTO_MAX}"))
         print(hdr(f" MANUAL      : {manual} / {MANUAL_MAX}"))
-        print(hdr(f" ────────────────────────────"))
+        print(hdr(f" ────────────────────────────────────"))
         print(hdr(f" TOTAL       : {total} / 100"))
         print(hdr(f" VERDICT     : {verdict}{strong}"))
         print("└" + line("═") + "┘")
+
+        _save_report(candidate, auto_earned, auto_details, manual, manual_scores, total, verdict + strong)
     else:
         print(f"\n  Automated: {auto_earned}/{AUTO_MAX}  |  run again with 'y' for full score\n")
+
+
+def _save_report(candidate, auto_earned, auto_details, manual, manual_scores, total, verdict):
+    """Write a plain-text + JSON report to score_report.txt"""
+    ts  = datetime.datetime.now().strftime("%Y-%m-%d %H:%M")
+    out = []
+    out.append("=" * 72)
+    out.append(f"  WIKISTREAM INTERVIEW — SCORE REPORT")
+    out.append(f"  Candidate : {candidate}")
+    out.append(f"  Date/Time : {ts}")
+    out.append("=" * 72)
+    out.append("")
+    out.append("AUTOMATED TESTS")
+    out.append("-" * 50)
+    for section_title, results in auto_details.items():
+        out.append(f"\n  {section_title}")
+        for display, earned, pts, status in results:
+            out.append(f"    [{status}]  {display:<48}  {earned}/{pts}")
+    out.append("")
+    out.append("MANUAL ASSESSMENT")
+    out.append("-" * 50)
+    for title, score in manual_scores.items():
+        max_pts = next(s["max"] for s in MANUAL_SECTIONS if s["title"] == title)
+        out.append(f"  {title:<45}  {score}/{max_pts}")
+    out.append("")
+    out.append("=" * 72)
+    out.append(f"  AUTOMATED  : {auto_earned} / {sum(pts for s in SECTIONS for _,_,pts in s['tests'])}")
+    out.append(f"  MANUAL     : {manual} / {sum(s['max'] for s in MANUAL_SECTIONS)}")
+    out.append(f"  TOTAL      : {total} / 100")
+    out.append(f"  VERDICT    : {verdict}")
+    out.append("=" * 72)
+
+    report_text = "\n".join(out)
+    with open("score_report.txt", "w") as f:
+        f.write(report_text)
+
+    # Also save machine-readable JSON
+    with open("score_report.json", "w") as f:
+        json.dump({
+            "candidate":    candidate,
+            "timestamp":    ts,
+            "automated":    auto_earned,
+            "manual":       manual,
+            "total":        total,
+            "verdict":      verdict,
+            "auto_details": {
+                s: [{"test": d, "earned": e, "max": p, "passed": st == "PASS"}
+                    for d, e, p, st in r]
+                for s, r in auto_details.items()
+            },
+            "manual_scores": manual_scores,
+        }, f, indent=2)
+
+    print(f"\n  Report saved → score_report.txt")
+    print(f"  JSON saved  → score_report.json\n")
 
 
 if __name__ == "__main__":
