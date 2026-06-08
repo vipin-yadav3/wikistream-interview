@@ -3,7 +3,7 @@
 -include .env
 export
 
-PYTHON := python3
+PYTHON := python3.10
 PYTEST := pytest
 
 help: ## Show available targets
