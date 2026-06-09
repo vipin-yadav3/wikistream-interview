@@ -8,3 +8,4 @@ minio==7.2.9
 pandas==2.2.3
 pyarrow==17.0.0
 pytest==8.3.3
+pyyaml==6.0.2
