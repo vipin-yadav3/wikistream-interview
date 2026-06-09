@@ -29,8 +29,9 @@ check-env: ## Verify Python, Java, and Docker are installed correctly
 	@echo "Checking prerequisites..."
 	@$(PYTHON) --version 2>&1 | grep -E "Python 3\.(9|10|11|12)" > /dev/null || \
 	  (echo "✗ Python 3.9+ required. Install from https://python.org" && exit 1)
-	@java -version 2>&1 | grep -E "version \"(11|17|21)" > /dev/null || \
-	  (echo "✗ Java 11+ required. Install from https://adoptium.net" && exit 1)
+	@java -version 2>&1 | grep -E "version \"(11|17)\." > /dev/null || \
+	  (echo "✗ Java 11 or 17 required (Java 25+ not supported by PySpark 3.5)." && \
+	   echo "  Install Java 17: https://adoptium.net/temurin/releases/?version=17" && exit 1)
 	@docker info > /dev/null 2>&1 || \
 	  (echo "✗ Docker not running. Start Docker Desktop." && exit 1)
 	@test -f .env || \

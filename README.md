@@ -11,14 +11,14 @@ Install these before starting:
 | Requirement | Version | Install |
 |---|---|---|
 | **Python** | 3.9 or higher | https://python.org/downloads |
-| **Java** | 11 or higher | https://adoptium.net |
+| **Java** | 11 or 17 only ⚠️ | https://adoptium.net/temurin/releases/?version=17 |
 | **Docker Desktop** | Latest | https://docker.com/products/docker-desktop |
 | **Git** | Any | https://git-scm.com |
 
 Verify your setup:
 ```bash
 python3 --version    # must be 3.9+
-java -version        # must be 11+
+java -version        # must be 11 or 17 (Java 21/25 not supported by PySpark 3.5)
 docker info          # must show server info (Docker must be running)
 ```
 
