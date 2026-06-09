@@ -1,11 +1,13 @@
 pyspark==3.5.3
 delta-spark==3.2.0
 kafka-python==2.0.2
-psycopg2-binary==2.9.9
+# psycopg (v3, pure Python) works on Python 3.8-3.14 with no compilation needed.
+# psycopg2-binary is NOT used — it fails to install on Python 3.13+.
+psycopg>=3.1
 requests==2.32.3
 sseclient-py==1.8.0
 minio==7.2.9
-pandas==2.2.3
-pyarrow==17.0.0
+pandas>=2.0
+pyarrow>=14.0
 pytest==8.3.3
-pyyaml==6.0.2
+pyyaml>=6.0

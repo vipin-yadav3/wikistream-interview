@@ -27,15 +27,22 @@ setup: ## First-time setup: deps, Docker, pre-download Spark JARs (~3 min)
 
 check-env: ## Verify Python, Java, and Docker are installed correctly
 	@echo "Checking prerequisites..."
-	@$(PYTHON) --version 2>&1 | grep -E "Python 3\.(9|10|11|12)" > /dev/null || \
-	  (echo "✗ Python 3.9+ required. Install from https://python.org" && exit 1)
-	@java -version 2>&1 | grep -E "version \"(11|17)\." > /dev/null || \
-	  (echo "✗ Java 11 or 17 required (Java 25+ not supported by PySpark 3.5)." && \
-	   echo "  Install Java 17: https://adoptium.net/temurin/releases/?version=17" && exit 1)
+	@$(PYTHON) --version 2>&1 | grep -qE "Python 3\." || \
+	  (echo "✗ Python 3 not found. See README for install options." && exit 1)
+	@java -version 2>&1 | grep -qE "version \"(11|17)\." || { \
+	  JAVA_VER=$$(java -version 2>&1 | grep -oE '[0-9]+\.[0-9]+' | head -1); \
+	  echo "✗ Java 11 or 17 required — found version $$JAVA_VER."; \
+	  echo "  PySpark 3.5 does not support Java 21 or newer."; \
+	  echo "  Easiest fix: open this repo in VS Code and use the devcontainer"; \
+	  echo "  (it has the right Java pre-installed)."; \
+	  echo "  Or install Java 17 manually:"; \
+	  echo "    macOS:  brew install --cask temurin@17"; \
+	  echo "    Other:  https://adoptium.net/temurin/releases/?version=17"; \
+	  exit 1; }
 	@docker info > /dev/null 2>&1 || \
-	  (echo "✗ Docker not running. Start Docker Desktop." && exit 1)
+	  (echo "✗ Docker not running. Start Docker Desktop and try again." && exit 1)
 	@test -f .env || \
-	  (echo "✗ .env file missing. Run: cp .env.example .env" && exit 1)
+	  (echo "✗ .env missing. Run: cp .env.example .env" && exit 1)
 	@echo "✓ Python OK  ✓ Java OK  ✓ Docker OK  ✓ .env OK"
 
 up: ## Start Kafka, Postgres, MinIO

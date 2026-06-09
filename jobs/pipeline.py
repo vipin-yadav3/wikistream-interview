@@ -218,7 +218,7 @@ def _upsert_batch(batch_df: DataFrame, batch_id: int) -> None:
             Overwrite = idempotent: if Spark replays this batch, we overwrite
             the same staging rows rather than appending duplicates.
 
-    Step 2: Open a psycopg2 connection and execute:
+    Step 2: Open a psycopg connection and execute:
             INSERT INTO wiki_edit_counts (...)
             SELECT ... FROM wiki_edit_counts_staging
             ON CONFLICT (window_start, wiki) DO UPDATE SET
@@ -232,14 +232,14 @@ def _upsert_batch(batch_df: DataFrame, batch_id: int) -> None:
     This ensures that if the job crashes and Spark re-processes a batch,
     the Postgres row is overwritten with the same values — not duplicated.
 
-    NOTE: psycopg2 DSN: postgresql://wiki:wiki@localhost:5432/wikidb
+    NOTE: psycopg DSN: postgresql://wiki:wiki@localhost:5432/wikidb
     """
     if batch_df.isEmpty():
         return
 
     # TODO: Step 1 — write to staging with mode="overwrite"
 
-    # TODO: Step 2 — execute UPSERT via psycopg2
+    # TODO: Step 2 — execute UPSERT via psycopg
 
     # TODO: Step 3 — commit + close
 
