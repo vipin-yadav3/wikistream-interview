@@ -1,0 +1,41 @@
+{
+  "name": "WikiStream Interview",
+
+  // Python 3.11 + Java 17 — both confirmed compatible with PySpark 3.5
+  "image": "mcr.microsoft.com/devcontainers/python:3.11",
+
+  "features": {
+    // Java 17 (LTS) — the safest choice for PySpark 3.5
+    "ghcr.io/devcontainers/features/java:1": {
+      "version": "17",
+      "jdkDistro": "ms"
+    },
+    // Docker-in-Docker so `make up` works inside the container
+    "ghcr.io/devcontainers/features/docker-in-docker:2": {
+      "version": "latest"
+    }
+  },
+
+  // Install Python deps and start Docker services automatically on container create
+  "postCreateCommand": "pip install -r requirements.txt && cp .env.example .env && make up",
+
+  // Forward all service ports to the host
+  "forwardPorts": [
+    9092,   // Kafka
+    5432,   // Postgres
+    9000,   // MinIO S3 API
+    9001    // MinIO console → http://localhost:9001
+  ],
+
+  "customizations": {
+    "vscode": {
+      "extensions": [
+        "ms-python.python",
+        "ms-python.vscode-pylance"
+      ],
+      "settings": {
+        "python.defaultInterpreterPath": "/usr/local/bin/python"
+      }
+    }
+  }
+}
