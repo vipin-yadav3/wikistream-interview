@@ -24,6 +24,27 @@ docker info          # must show server info (Docker must be running)
 
 ---
 
+## Your branch
+
+The interviewer will tell you your branch name before the interview starts.
+It will be in the format `solution/<your-name>`, e.g. `solution/jane-doe`.
+
+Check it out after cloning:
+
+```bash
+git checkout solution/your-name
+```
+
+All your work goes on this branch. Push normally as you go:
+
+```bash
+git add jobs/pipeline.py
+git commit -m "wip"
+git push
+```
+
+---
+
 ## Quick start
 
 ```bash
