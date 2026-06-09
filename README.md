@@ -30,22 +30,31 @@ docker info          # must show server info (Docker must be running)
 # 1. Copy environment config
 cp .env.example .env
 
-# 2. Install Python dependencies
+# 2. Create and activate a virtual environment (recommended)
+python3 -m venv .venv
+source .venv/bin/activate        # macOS / Linux
+# .venv\Scripts\activate         # Windows
+
+# 3. Install Python dependencies
 python3 -m pip install -r requirements.txt
 
-# 3. Start all services (Kafka, Postgres, MinIO) + pre-download Spark JARs
+# 4. Start all services (Kafka, Postgres, MinIO) + pre-download Spark JARs
 #    First run takes ~3 minutes to download JARs — this is expected, not a hang.
 make setup
 
-# 4. Terminal 1: start the Wikipedia event producer
+# 5. Terminal 1: start the Wikipedia event producer
 make producer
 
-# 5. Verify events are flowing (should see JSON within 5 seconds)
+# 6. Verify events are flowing (should see JSON within 5 seconds)
 make check-kafka
 ```
 
 > **Note:** `make setup` downloads ~500 MB of Spark JARs on the first run.
 > It looks like it has stalled — it hasn't. Subsequent runs use the cache and are instant.
+
+> **If `pip install` fails with a PEP 668 error** (common on newer macOS/Linux):
+> the venv in step 2 above fixes this. Make sure you've run `source .venv/bin/activate`
+> before running `pip install`.
 
 ---
 
