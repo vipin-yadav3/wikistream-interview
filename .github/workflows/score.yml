@@ -81,8 +81,13 @@ jobs:
             const fs = require('fs');
             const output = fs.readFileSync('score_output.txt', 'utf8');
             const branch = context.ref.replace('refs/heads/', '');
-            const candidate = branch.replace('solution/', '').replace(/-/g, ' ')
-                                    .replace(/\b\w/g, c => c.toUpperCase());
+            // Per-candidate repo: extract name from repo (wikistream-jane-doe → Jane Doe)
+            // Shared repo: extract name from branch (solution/jane-doe → Jane Doe)
+            const rawName = branch === 'main'
+              ? context.repo.repo.replace(/^wikistream-/, '')
+              : branch.replace('solution/', '');
+            const candidate = rawName.replace(/-/g, ' ')
+                                     .replace(/\b\w/g, c => c.toUpperCase());
 
             let json = {};
             try { json = JSON.parse(fs.readFileSync('score_report.json', 'utf8')); } catch {}
