@@ -1,50 +1,79 @@
-# WikiStream — Data Engineering Interview
+# WikiStream Analytics Pipeline
 
-Welcome. Read **[PROBLEM.md](PROBLEM.md)** for full instructions.
+Read **[PROBLEM.md](PROBLEM.md)** for the full problem statement.
+
+---
+
+## Prerequisites
+
+Install these before starting:
+
+| Requirement | Version | Install |
+|---|---|---|
+| **Python** | 3.9 or higher | https://python.org/downloads |
+| **Java** | 11 or higher | https://adoptium.net |
+| **Docker Desktop** | Latest | https://docker.com/products/docker-desktop |
+| **Git** | Any | https://git-scm.com |
+
+Verify your setup:
+```bash
+python3 --version    # must be 3.9+
+java -version        # must be 11+
+docker info          # must show server info (Docker must be running)
+```
+
+---
 
 ## Quick start
 
 ```bash
-# 1. Install Python dependencies
-pip install -r requirements.txt
-
-# 2. Start all services (Kafka, Postgres, MinIO)
-make up
-
-# 3. Copy environment config
+# 1. Copy environment config
 cp .env.example .env
 
-# 4. Terminal 1 — start the Wikipedia event producer
+# 2. Install Python dependencies
+python3 -m pip install -r requirements.txt
+
+# 3. Start all services (Kafka, Postgres, MinIO) + pre-download Spark JARs
+#    First run takes ~3 minutes to download JARs — this is expected, not a hang.
+make setup
+
+# 4. Terminal 1: start the Wikipedia event producer
 make producer
 
-# 5. Verify events are flowing
+# 5. Verify events are flowing (should see JSON within 5 seconds)
 make check-kafka
-
-# 6. Run the pipeline (implement jobs/pipeline.py first)
-make pipeline
 ```
+
+> **Note:** `make setup` downloads ~500 MB of Spark JARs on the first run.
+> It looks like it has stalled — it hasn't. Subsequent runs use the cache and are instant.
+
+---
 
 ## Available commands
 
 ```
+make setup        Install deps, start Docker, pre-download Spark JARs
 make up           Start Kafka, Postgres, MinIO
-make producer     Stream Wikipedia edits into Kafka
+make producer     Stream Wikipedia edits into Kafka (run in second terminal)
 make pipeline     Run your Spark streaming pipeline
+make check-kafka  Verify Kafka is receiving events
 make check-pg     Show latest rows in Postgres
 make check-minio  List Delta files in MinIO
-make check-kafka  Tail Kafka messages
-make test         Run automated unit tests
-make score        Live score report
+make test         Run automated unit tests against your code
 make reset        Wipe state for a fresh start
 make down         Stop all services
+make check-env    Verify Python, Java, Docker prerequisites
 ```
+
+---
 
 ## Stack
 
 - **PySpark 3.5** — streaming engine
-- **Kafka** (bitnami, KRaft mode) — event bus
-- **Postgres 15** — live aggregation sink
-- **MinIO** — S3-compatible object store for Delta Lake
+- **Kafka** (Confluent) — event bus on `localhost:9092`
+- **Postgres 15** — live aggregation sink on `localhost:5432`
+- **MinIO** — S3-compatible Delta Lake storage
+- **MinIO console** — http://localhost:9001 (minioadmin / minioadmin)
 
 ---
 
