@@ -170,6 +170,47 @@ class TestMakefileFixes:
             "Must not use --network host — broken on macOS Docker Desktop"
         )
 
+    def test_issue4_java_version_check_not_too_broad(self):
+        """
+        ISSUE #4 (High): check-env Java regex matched (11|17|21) which would
+        pass Java 25 if extended naively. PySpark 3.5 only supports Java 11/17.
+        Fix: regex must only match Java 11 and 17, not Java 21 or 25.
+        """
+        makefile = read("Makefile")
+        java_line = next(
+            (l for l in makefile.splitlines() if "java -version" in l.lower()), ""
+        )
+        assert "11" in java_line and "17" in java_line, (
+            "check-env must check for Java 11 and 17"
+        )
+        assert "25" not in java_line, (
+            "Java 25 must NOT be in the allowed list — PySpark 3.5 does not support it"
+        )
+        # Must not use a wildcard that would pass Java 25 (e.g. "11+" or "11 or higher")
+        assert "11+" not in java_line and "higher" not in java_line.lower(), (
+            "check-env must not use open-ended Java version matching (e.g. 11+)"
+        )
+
+    def test_issue5_readme_java_version_is_specific(self):
+        """
+        ISSUE #5 (High): README said 'Java 11 or higher' which implies Java 25 is fine.
+        PySpark 3.5 only supports Java 8, 11, and 17. Java 21/25 causes Spark to fail.
+        Fix: README must say '11 or 17' and must NOT say 'or higher' / '11+'.
+        """
+        readme = read("README.md")
+        java_lines = [l for l in readme.splitlines() if "Java" in l or "java" in l]
+        for line in java_lines:
+            assert "or higher" not in line.lower(), (
+                f"README must not say 'Java 11 or higher' — PySpark 3.5 doesn't support Java 25.\n"
+                f"Offending line: {line}"
+            )
+            assert "11+" not in line, (
+                f"README must not say 'Java 11+' — too broad.\nOffending line: {line}"
+            )
+        assert any("17" in l for l in java_lines), (
+            "README must explicitly mention Java 17 as a supported version"
+        )
+
     def test_setup_mentions_jar_download_time(self):
         """
         ISSUE #6 (Low): make setup silently downloads ~500MB JARs, looks like a hang.
