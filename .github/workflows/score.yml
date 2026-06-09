@@ -1,9 +1,12 @@
 name: Auto-Score Candidate Solution
 
-# Triggers when a candidate pushes to solution/<their-name>
+# Triggers on any push — works for both:
+#   • Per-candidate repos (candidate pushes to main)
+#   • Shared repo (candidate pushes to solution/<name> branch)
 on:
   push:
     branches:
+      - 'main'
       - 'solution/**'
 
 permissions:
